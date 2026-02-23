@@ -23,11 +23,15 @@ class RagService(object):
 
         '''三个地方的注入 1.参考资料2.历史信息3.用户的提问'''
         self.prompt_template=ChatPromptTemplate.from_messages([
-            ("system","以我提供的已知参考材料为主,"
-             "简洁专业的回答用户问题。参考资料:{context}。"),
-            ("system","并且我提供用户的对话历史记录如下："),
+            ("system","你是一个严格基于知识库内容回答问题的AI助手。你必须遵守以下规则：\n"
+             "1. 严格基于我提供的参考资料回答问题，不要编造任何内容\n"
+             "2. 如果参考资料中没有相关信息，请明确说明'根据现有资料无法回答此问题'\n"
+             "3. 不要添加参考资料以外的推测或假设\n"
+             "4. 回答应简洁专业，直接引用相关资料内容\n"
+             "参考资料:{context}"),
+            ("system","用户的对话历史记录如下："),
             MessagesPlaceholder("history"),
-            ("user","请回答用户提问:{input}")
+            ("user","请严格基于上述参考资料回答我的问题:{input}")
         ])
 
         self.chat_model=ChatTongyi(model=config.chat_model_name,api_key=config.BAI_LIAN_API_KEY)
@@ -76,7 +80,7 @@ class RagService(object):
             return new_value
         def format_document(docs: list[Document]) -> str:
             if not docs:
-                return "未找到相关资料，请根据常识回答。"
+                return "未找到相关参考资料。请明确告知用户：根据现有知识库内容无法回答此问题，建议提供更多相关信息或询问其他问题。"
             return "\n".join(
                 f"文档片段: {doc.page_content}\n文档元数据: {doc.metadata}"
                 for doc in docs
