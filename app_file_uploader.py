@@ -1,5 +1,3 @@
-import time
-import os
 from io import BytesIO
 
 import streamlit as st

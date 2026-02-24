@@ -7,8 +7,8 @@ persist_directory="./chroma_db"
 
 
 #spliter
-chunk_size=1500
-chunk_overlap=150
+chunk_size=150
+chunk_overlap=10
 separators=["\n\n","\n","。","？","！","；","，","、",":",";"]
 max_split_char_number=5000
 
@@ -24,4 +24,4 @@ session_config = {
 }
 
 #相识度检索阈值
-similarity_threshold=5     #检索匹配返回的文档数量
+similarity_threshold=3    #检索匹配返回的文档数量

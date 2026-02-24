@@ -1,6 +1,6 @@
 from langchain_chroma import Chroma
-from langchain.retrievers import BM25Retriever, EnsembleRetriever
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_classic.retrievers import EnsembleRetriever
+from langchain_community.retrievers import BM25Retriever
 import config_data as config
 import os
 from logger_config import setup_logger
