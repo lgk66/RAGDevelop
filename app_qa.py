@@ -90,42 +90,43 @@ with col_main:
         with st.chat_message(msg["role"], avatar=avatar):
             st.markdown(msg["content"])
 
-    prompt = st.chat_input("请输入您的问题，例如“根据售后政策，这种情况怎么处理？”")
-
-    if prompt:
-        with st.chat_message("user", avatar="🧑‍💼"):
-            st.markdown(prompt)
-        st.session_state.messages.append({"role": "user", "content": prompt})
-
-        with st.chat_message("assistant", avatar="🤖"):
-            status = st.status("正在基于知识库生成回答...", expanded=True)
-
-            try:
-                response_stream = st.session_state.rag.chain.stream(
-                    {"input": prompt},
-                    config=config.session_config,
-                )
-
-                full_response = ""
-                response_placeholder = status.empty()
-
-                for chunk in response_stream:
-                    full_response += chunk
-                    response_placeholder.markdown(full_response + "▌")
-
-                response_placeholder.markdown(full_response)
-                status.update(label="回答完成", state="complete", expanded=True)
-
-            except Exception as e:
-                st.error(f"请求失败：{str(e)}")
-                full_response = "抱歉，服务暂时不可用，请稍后再试。"
-                status.update(label="请求失败", state="error", expanded=True)
-
-        st.session_state.messages.append(
-            {
-                "role": "assistant",
-                "content": full_response,
-            }
-        )
-
     st.markdown("</div>", unsafe_allow_html=True)
+
+# 用户输入框固定在页面最底部
+prompt = st.chat_input("请输入您的问题，例如“根据售后政策，这种情况怎么处理？”")
+
+if prompt:
+    with st.chat_message("user", avatar="🧑‍💼"):
+        st.markdown(prompt)
+    st.session_state.messages.append({"role": "user", "content": prompt})
+
+    with st.chat_message("assistant", avatar="🤖"):
+        status = st.status("正在基于知识库生成回答...", expanded=True)
+
+        try:
+            response_stream = st.session_state.rag.chain.stream(
+                {"input": prompt},
+                config=config.session_config,
+            )
+
+            full_response = ""
+            response_placeholder = status.empty()
+
+            for chunk in response_stream:
+                full_response += chunk
+                response_placeholder.markdown(full_response + "▌")
+
+            response_placeholder.markdown(full_response)
+            status.update(label="回答完成", state="complete", expanded=True)
+
+        except Exception as e:
+            st.error(f"请求失败：{str(e)}")
+            full_response = "抱歉，服务暂时不可用，请稍后再试。"
+            status.update(label="请求失败", state="error", expanded=True)
+
+    st.session_state.messages.append(
+        {
+            "role": "assistant",
+            "content": full_response,
+        }
+    )
