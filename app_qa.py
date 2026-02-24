@@ -4,6 +4,7 @@ from langchain_core.callbacks import BaseCallbackHandler
 from rag import RagService
 import config_data as config
 
+
 # 页面配置
 st.set_page_config(page_title="智能客服", page_icon="💬")
 st.title("💬 智能客服助手")
@@ -58,11 +59,19 @@ if prompt := st.chat_input("请输入您的问题..."):
         retrieval_callback = RetrievalCallback()  # 创建回调实例
 
         try:
-            # 调用流式接口，并传入回调
+            # 构建包含回调的配置（将回调合并到原session_config中）
+            from copy import deepcopy
+            run_config = deepcopy(config.session_config)  # 复制原配置，避免修改原对象
+            if isinstance(run_config, dict):
+                run_config.setdefault("callbacks", []).append(retrieval_callback)
+            else:
+                # 如果config.session_config不是字典，尝试转换为字典或直接创建新配置
+                run_config = {"callbacks": [retrieval_callback], **config.session_config}
+
+            # 调用流式接口，通过config传递回调
             response_stream = st.session_state.rag.chain.stream(
                 {"input": prompt},
-                config=config.session_config,
-                callbacks=[retrieval_callback]  # 关键：将回调传入
+                config=run_config
             )
 
             # 收集完整回答
