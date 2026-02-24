@@ -91,6 +91,94 @@ class KnowledgeBaseService(object):
 
         return "[成功]内容已经载入向量库"
 
+    def get_all_documents(self):
+        """获取知识库中所有文档信息"""
+        try:
+            result = self.chroma.get()
+            if not result or not result.get("ids"):
+                return []
+            
+            documents = []
+            for i, doc_id in enumerate(result["ids"]):
+                documents.append({
+                    "id": doc_id,
+                    "content": result["documents"][i] if i < len(result["documents"]) else "",
+                    "metadata": result["metadatas"][i] if i < len(result["metadatas"]) else {},
+                })
+            return documents
+        except Exception as e:
+            logger.error(f"获取文档列表失败: {e}")
+            return []
+
+    def get_documents_by_source(self, source: str):
+        """根据文件名获取对应文档"""
+        try:
+            result = self.chroma.get(where={"source": source})
+            if not result or not result.get("ids"):
+                return []
+            
+            documents = []
+            for i, doc_id in enumerate(result["ids"]):
+                documents.append({
+                    "id": doc_id,
+                    "content": result["documents"][i] if i < len(result["documents"]) else "",
+                    "metadata": result["metadatas"][i] if i < len(result["metadatas"]) else {},
+                })
+            return documents
+        except Exception as e:
+            logger.error(f"获取文档失败: {e}")
+            return []
+
+    def delete_by_source(self, source: str):
+        """根据文件名删除文档"""
+        try:
+            docs = self.get_documents_by_source(source)
+            if not docs:
+                return f"[失败]未找到文件: {source}"
+            
+            doc_ids = [doc["id"] for doc in docs]
+            self.chroma.delete(ids=doc_ids)
+            
+            return f"[成功]已删除文件: {source}，共 {len(doc_ids)} 个文档块"
+        except Exception as e:
+            logger.error(f"删除文档失败: {e}")
+            return f"[失败]删除失败: {e}"
+
+    def delete_by_id(self, doc_id: str):
+        """根据ID删除单个文档块"""
+        try:
+            self.chroma.delete(ids=[doc_id])
+            return f"[成功]已删除文档块: {doc_id}"
+        except Exception as e:
+            logger.error(f"删除文档块失败: {e}")
+            return f"[失败]删除失败: {e}"
+
+    def clear_all(self):
+        """清空知识库"""
+        try:
+            self.chroma.delete(where={})
+            if os.path.exists(config.md5_path):
+                os.remove(config.md5_path)
+            return "[成功]知识库已清空"
+        except Exception as e:
+            logger.error(f"清空知识库失败: {e}")
+            return f"[失败]清空失败: {e}"
+
+    def get_stats(self):
+        """获取知识库统计信息"""
+        try:
+            count = self.chroma.count()
+            all_docs = self.get_all_documents()
+            sources = list(set([doc["metadata"].get("source", "未知") for doc in all_docs]))
+            return {
+                "total_chunks": count,
+                "total_files": len(sources),
+                "sources": sources
+            }
+        except Exception as e:
+            logger.error(f"获取统计信息失败: {e}")
+            return {"total_chunks": 0, "total_files": 0, "sources": []}
+
 if __name__ == '__main__':
     # r1=get_string_md5("周杰伦")
     # r2=get_string_md5("周杰伦")
