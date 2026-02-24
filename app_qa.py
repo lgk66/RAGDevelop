@@ -1,7 +1,8 @@
 import streamlit as st
+from langchain_core.callbacks import BaseCallbackHandler
+
 from rag import RagService
 import config_data as config
-from langchain.callbacks.base import BaseCallbackHandler  # 新增导入
 
 # 页面配置
 st.set_page_config(page_title="智能客服", page_icon="💬")
