@@ -7,6 +7,10 @@ from file_history_store import  get_history
 from vector_stores import  VectorStoreService
 from langchain_community.embeddings import DashScopeEmbeddings
 import config_data as config
+from logger_config import setup_logger
+
+# 创建日志记录器
+logger = setup_logger('rag_service')
 
 
 
@@ -19,96 +23,133 @@ def print_prompt(prompt):
 class RagService(object):
 
     def __init__(self):
-        self.vector_service=VectorStoreService(DashScopeEmbeddings(model=config.embedding_model_name,dashscope_api_key=config.BAI_LIAN_API_KEY))
+        try:
+            logger.info("初始化RagService...")
+            # 初始化向量存储服务
+            logger.info("初始化向量存储服务...")
+            self.vector_service=VectorStoreService(DashScopeEmbeddings(
+                model=config.embedding_model_name,
+                dashscope_api_key=config.BAI_LIAN_API_KEY
+            ))
+            logger.info("向量存储服务初始化成功")
 
-        '''三个地方的注入 1.参考资料2.历史信息3.用户的提问'''
-        self.prompt_template=ChatPromptTemplate.from_messages([
-            ("system","你是一个严格基于知识库内容回答问题的AI助手。你必须遵守以下规则：\n"
-             "1. 严格基于我提供的参考资料回答问题，不要编造任何内容\n"
-             "2. 如果参考资料中没有相关信息，请明确说明'根据现有资料无法回答此问题'\n"
-             "3. 不要添加参考资料以外的推测或假设\n"
-             "4. 回答应简洁专业，直接引用相关资料内容\n"
-             "参考资料:{context}"),
-            ("system","用户的对话历史记录如下："),
-            MessagesPlaceholder("history"),
-            ("user","请严格基于上述参考资料回答我的问题:{input}")
-        ])
+            # 初始化提示模板
+            logger.info("初始化提示模板...")
+            '''三个地方的注入 1.参考资料2.历史信息3.用户的提问'''
+            self.prompt_template=ChatPromptTemplate.from_messages([
+                ("system","你是一个严格基于知识库内容回答问题的AI助手。你必须遵守以下规则：\n"
+                 "1. 严格基于我提供的参考资料回答问题，不要编造任何内容\n"
+                 "2. 如果参考资料中没有相关信息，请明确说明'根据现有资料无法回答此问题'\n"
+                 "3. 不要添加参考资料以外的推测或假设\n"
+                 "4. 回答应简洁专业，直接引用相关资料内容\n"
+                 "参考资料:{context}"),
+                ("system","用户的对话历史记录如下："),
+                MessagesPlaceholder("history"),
+                ("user","请严格基于上述参考资料回答我的问题:{input}")
+            ])
+            logger.info("提示模板初始化成功")
 
-        self.chat_model=ChatTongyi(model=config.chat_model_name,api_key=config.BAI_LIAN_API_KEY)
+            # 初始化聊天模型
+            logger.info("初始化聊天模型...")
+            self.chat_model=ChatTongyi(
+                model=config.chat_model_name,
+                api_key=config.BAI_LIAN_API_KEY
+            )
+            logger.info("聊天模型初始化成功")
 
-        self.chain=self.__get_chain()
+            # 初始化链
+            logger.info("初始化处理链...")
+            self.chain=self.__get_chain()
+            logger.info("处理链初始化成功")
+            logger.info("RagService初始化完成")
+        except Exception as e:
+            logger.error(f"RagService初始化失败: {str(e)}")
+            raise
 
 
     def __get_chain(self):
-        retriever = self.vector_service.get_retriever()
+        try:
+            logger.info("构建处理链...")
+            
+            # 获取检索器
+            retriever = self.vector_service.get_retriever()
+            logger.info("检索器获取成功")
 
-        def format_for_retriever(value: dict) -> str:
-            """
-            从输入字典中提取用户问题，用于检索器查询
+            def format_for_retriever(value: dict) -> str:
+                """
+                从输入字典中提取用户问题，用于检索器查询
 
-            Args:
-                value: 包含用户输入的字典，格式如 {"input": "用户问题"}
+                Args:
+                    value: 包含用户输入的字典，格式如 {"input": "用户问题"}
 
-            Returns:
-                str: 提取出的用户问题字符串
-            """
-            print("输入到检索器中的数据:",value)
-            return value["input"]
+                Returns:
+                    str: 提取出的用户问题字符串
+                """
+                logger.debug(f"输入到检索器中的数据: {value}")
+                return value["input"]
 
-        def format_for_prompt_template(value):
-            print("输入到prompt_template中的数据:",value)
-            """
-            将检索结果和输入信息重组为提示模板所需的格式
+            def format_for_prompt_template(value):
+                logger.debug(f"输入到prompt_template中的数据: {value}")
+                """
+                将检索结果和输入信息重组为提示模板所需的格式
 
-            Args:
-                value: 包含检索结果和原始输入的字典，格式如：
+                Args:
+                    value: 包含检索结果和原始输入的字典，格式如：
+                        {
+                            "input": {"input": "用户问题", "history": [...]},
+                            "context": "检索到的文档内容"
+                        }
+
+                Returns:
+                    dict: 重组后的字典，包含提示模板所需的三个键：
+                        - "input": 用户问题
+                        - "context": 检索到的文档上下文
+                        - "history": 对话历史
+                """
+                new_value = {}
+                new_value["input"] = value["input"]["input"]  # 提取用户问题
+                new_value["context"] = value["context"]  # 直接使用检索结果
+                new_value["history"] = value["input"]["history"]  # 提取历史对话
+                return new_value
+            
+            def format_document(docs: list[Document]) -> str:
+                if not docs:
+                    logger.warning("未找到相关参考资料")
+                    return "未找到相关参考资料。请明确告知用户：根据现有知识库内容无法回答此问题，建议提供更多相关信息或询问其他问题。"
+                logger.info(f"找到 {len(docs)} 个相关文档")
+                return "\n".join(
+                    f"文档片段: {doc.page_content}\n文档元数据: {doc.metadata}"
+                    for doc in docs
+                )
+
+            # 构建检索链：输入问题 -> 检索 -> 格式化
+            retrieval_chain = retriever | format_document
+
+            # 主链：并行处理输入（透传）和检索结果
+            chain = (
                     {
-                        "input": {"input": "用户问题", "history": [...]},
-                        "context": "检索到的文档内容"
+                        "input": RunnablePassthrough(),
+                        "context": RunnableLambda(format_for_retriever) | retriever | format_document
                     }
-
-            Returns:
-                dict: 重组后的字典，包含提示模板所需的三个键：
-                    - "input": 用户问题
-                    - "context": 检索到的文档上下文
-                    - "history": 对话历史
-            """
-            new_value = {}
-            new_value["input"] = value["input"]["input"]  # 提取用户问题
-            new_value["context"] = value["context"]  # 直接使用检索结果
-            new_value["history"] = value["input"]["history"]  # 提取历史对话
-            return new_value
-        def format_document(docs: list[Document]) -> str:
-            if not docs:
-                return "未找到相关参考资料。请明确告知用户：根据现有知识库内容无法回答此问题，建议提供更多相关信息或询问其他问题。"
-            return "\n".join(
-                f"文档片段: {doc.page_content}\n文档元数据: {doc.metadata}"
-                for doc in docs
+                    | RunnableLambda(format_for_prompt_template)
+                    | self.prompt_template
+                    | self.chat_model
+                    | StrOutputParser()
             )
 
-        # 构建检索链：输入问题 -> 检索 -> 格式化
-        retrieval_chain = retriever | format_document
-
-        # 主链：并行处理输入（透传）和检索结果
-        chain = (
-                {
-                    "input": RunnablePassthrough(),
-                    "context": RunnableLambda(format_for_retriever) | retriever | format_document
-                }
-                | RunnableLambda(format_for_prompt_template)
-                | self.prompt_template
-                | self.chat_model
-                | StrOutputParser()
-        )
-
-        # 添加历史管理
-        conversation_chain=RunnableWithMessageHistory(
-            chain,
-            get_history,
-            input_messages_key="input",
-            history_messages_key="history",  # 明确指定历史消息键（与模板中的MessagesPlaceholder对应）
-        )
-        return conversation_chain
+            # 添加历史管理
+            conversation_chain=RunnableWithMessageHistory(
+                chain,
+                get_history,
+                input_messages_key="input",
+                history_messages_key="history",  # 明确指定历史消息键（与模板中的MessagesPlaceholder对应）
+            )
+            
+            logger.info("处理链构建成功")
+            return conversation_chain
+        except Exception as e:
+            logger.error(f"构建处理链失败: {str(e)}")
+            raise
 """"input" 键：
 
 RunnablePassthrough() 的作用是“透传”。它不做任何处理，直接把接收到的输入（用户的问题）原封不动地传下去。

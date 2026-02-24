@@ -7,10 +7,10 @@ persist_directory="./chroma_db"
 
 
 #spliter
-chunk_size=1024
-chunk_overlap=100
-separators=["\n","\n\n","。","？","！","；","，","、",":",";"]
-max_split_char_number=1000
+chunk_size=1500
+chunk_overlap=150
+separators=["\n\n","\n","。","？","！","；","，","、",":",";"]
+max_split_char_number=5000
 
 
 BAI_LIAN_API_KEY="sk-cff8fd7e3eb7463a9a4ed47d0a8c4957"
@@ -24,4 +24,4 @@ session_config = {
 }
 
 #相识度检索阈值
-similarity_threshold=3     #检索匹配返回的文档数量
+similarity_threshold=5     #检索匹配返回的文档数量
