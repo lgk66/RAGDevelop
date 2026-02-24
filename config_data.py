@@ -15,7 +15,7 @@ max_split_char_number=5000
 
 BAI_LIAN_API_KEY="sk-cff8fd7e3eb7463a9a4ed47d0a8c4957"
 embedding_model_name="text-embedding-v4"
-chat_model_name="qwen3-max"
+chat_model_name="qwen3.5-plus"
 
 session_config = {
     "configurable": {
