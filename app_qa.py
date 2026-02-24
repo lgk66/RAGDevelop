@@ -1,5 +1,5 @@
 import streamlit as st
-from langchain_core.callbacks import BaseCallbackHandler
+
 
 from rag import RagService
 import config_data as config
@@ -44,34 +44,16 @@ if prompt := st.chat_input("请输入您的问题..."):
         st.markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
 
-    # ---------- 新增：回调处理器，用于捕获检索到的文档 ----------
-    class RetrievalCallback(BaseCallbackHandler):
-        def __init__(self):
-            self.retrieved_docs = []
-
-        def on_retriever_end(self, documents, *, run_id, parent_run_id=None, **kwargs):
-            # 当检索结束时，将文档列表保存到回调实例中
-            self.retrieved_docs = documents
-
     # ---------- 获取AI响应 ----------
     with st.chat_message("assistant", avatar="🤖"):
-        status = st.status("AI正在检索知识库思考...", expanded=True)
-        retrieval_callback = RetrievalCallback()  # 创建回调实例
+        status = st.status("AI正在思考...", expanded=True)
+        # 删除: retrieval_callback = RetrievalCallback()  # 创建回调实例
 
         try:
-            # 构建包含回调的配置（将回调合并到原session_config中）
-            from copy import deepcopy
-            run_config = deepcopy(config.session_config)  # 复制原配置，避免修改原对象
-            if isinstance(run_config, dict):
-                run_config.setdefault("callbacks", []).append(retrieval_callback)
-            else:
-                # 如果config.session_config不是字典，尝试转换为字典或直接创建新配置
-                run_config = {"callbacks": [retrieval_callback], **config.session_config}
-
-            # 调用流式接口，通过config传递回调
+            # 调用流式接口，使用默认配置
             response_stream = st.session_state.rag.chain.stream(
                 {"input": prompt},
-                config=run_config
+                config=config.session_config
             )
 
             # 收集完整回答
@@ -88,21 +70,6 @@ if prompt := st.chat_input("请输入您的问题..."):
 
             # 更新状态为完成
             status.update(label="✅ 回答完成", state="complete", expanded=True)
-
-            # ---------- 新增：显示知识库来源 ----------
-            if retrieval_callback.retrieved_docs:
-                with st.expander("📚 知识库来源"):
-                    for i, doc in enumerate(retrieval_callback.retrieved_docs):
-                        source = doc.metadata.get("source", "未知来源")
-                        # 可以显示更多元数据字段，如标题、页码等，取决于你的文档
-                        content_preview = doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content
-                        st.markdown(f"**来源 {i+1}:** `{source}`")
-                        st.caption(content_preview)
-                        if i < len(retrieval_callback.retrieved_docs) - 1:
-                            st.divider()
-            else:
-                # 如果没有检索到文档，可给出提示（可选）
-                st.caption("⚠️ 未从知识库中检索到相关文档，以上回答基于模型自身知识。")
 
         except Exception as e:
             st.error(f"请求失败：{str(e)}")
